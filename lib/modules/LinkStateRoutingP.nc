@@ -23,6 +23,14 @@ module LinkStateRoutingP {
 }
 
 implementation {
+typedef struct {
+    uint16_t src;
+    uint16_t dest;
+    uint8_t TTL;
+    uint8_t protocol;
+    uint16_t seq;
+    uint8_t payload[128]; // Adjust size as needed
+} pack;
 
     typedef struct {
         uint8_t nextHop;
@@ -205,4 +213,5 @@ implementation {
     if (call Sender.send(&routePack, AM_BROADCAST_ADDR) != SUCCESS) {
         dbg(GENERAL_CHANNEL, "Failed to send LSP packet.\n");
     }
+}
 }
