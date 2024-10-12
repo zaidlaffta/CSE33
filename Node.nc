@@ -87,7 +87,7 @@ implementation {
             dbg(GENERAL_CHANNEL, "******************************************\n");
          }
          else if(myMsg -> protocol == PROTOCOL_LS){
-            call LinkState.handleLS(myMsg); 
+            call LinkState(myMsg); 
          }
          else {
             //dbg(GENERAL_CHANNEL, "Flooding function called here\n");
