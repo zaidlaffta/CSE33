@@ -167,13 +167,13 @@ module Node {
   uses interface NeighborDiscovery;
   uses interface CommandHandler;
   uses interface LinkState;
-  uses interface Debug as General;  // For General debug output
+ // uses interface Debug as General;  
 }
 
 implementation {
   // Boot Event: Start LinkState when the node boots
   event void Boot.booted() {
-    call General.print("Node booted. Initializing...\n");
+    (GENERAL_CHANNEL, "Node booted. Initializing...\n");
     
     // Start LinkState protocol
     call LinkState.start();
@@ -184,7 +184,7 @@ implementation {
 
   // Receive Event: Handles the receipt of a message
   event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len) {
-    call General.print("Message received at Node.\n");
+    (GENERAL_CHANNEL, "Message received at Node.\n");
 
     // Let LinkState handle received Link-State Packets (LSPs)
     message_t* response = call LinkState.receive(msg, payload, len);
@@ -195,15 +195,15 @@ implementation {
   // Send Event: Handles the completion of a message send operation
   event void AMSend.sendDone(message_t* msg, error_t err) {
     if (err == SUCCESS) {
-      call General.print("Message sent successfully.\n");
+      (GENERAL_CHANNEL, "Message sent successfully.\n");
     } else {
-      call General.print("Error sending message.\n");
+      (GENERAL_CHANNEL, "Error sending message.\n");
     }
   }
 
   // Neighbor Discovery Event: When a new neighbor is discovered
   event void NeighborDiscovery.found() {
-    call General.print("Neighbor discovered.\n");
+    (GENERAL_CHANNEL, "Neighbor discovered.\n");
 
     // Notify the LinkState module about the new neighbor
     call LinkState.handleNeighborDiscovery();
@@ -211,7 +211,7 @@ implementation {
 
   // CommandHandler Event: Handles received commands
   event void CommandHandler.commandReceived(uint8_t command) {
-    call General.print("Command received: %d\n", command);
+    (GENERAL_CHANNEL, "Command received: %d\n", command);
     
     // For example, command '1' could trigger printing of the routing table
     if (command == 1) {
