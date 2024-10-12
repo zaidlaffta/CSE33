@@ -8,7 +8,6 @@
 #define LS_MAX_ROUTES 256
 #define LS_MAX_COST 17
 #define LS_TTL 17
-
 configuration LinkStateRoutingC {
     provides interface LinkStateRouting;
 }
@@ -20,7 +19,8 @@ implementation {
     components new SimpleSendC(AM_PACK);
     LinkStateRoutingP.Sender -> SimpleSendC;
 
-    components new HashmapC(LS_MAX_ROUTES) as PacketsReceivedMap;
+    // HashmapC requires two parameters: the key type and value type.
+    components new HashmapC(uint16_t, bool) as PacketsReceivedMap;  // Adjust key and value types as needed
     LinkStateRoutingP.PacketsReceived -> PacketsReceivedMap;
 
     components NeighborDiscoveryC;
@@ -34,5 +34,4 @@ implementation {
 
     components RandomC as Random;               
     LinkStateRoutingP.Random -> Random;
-    
 }
