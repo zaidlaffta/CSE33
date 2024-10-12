@@ -186,10 +186,10 @@ void sendLSP(uint8_t lostNeighbor) {
     uint16_t i = 0, counter = 0;
 
     // Prepare the packet structure and ensure payload allocation
-    makePack(&routePack, TOS_NODE_ID, AM_BROADCAST_ADDR, LS_TTL, PROTOCOL_LS, sequenceNum++, NULL, sizeof(LSP) * 10);  // Adjust size as needed
+    makePack(&routePack, TOS_NODE_ID, AM_BROADCAST_ADDR, LS_TTL, PROTOCOL_LS, sequenceNum++, NULL, sizeof(LSP) * 10);  // Adjust size
 
-    // Casting payload as an array of LSP structures
-    LSP *lsp = (LSP *)routePack.payload;
+    // Ensure the payload pointer is valid
+    LSP* lsp = (LSP*)call Packet.getPayload(&routePack, sizeof(LSP) * 10);  // Use TinyOS getPayload to access payload
 
     // Iterate through neighbors and fill the LSP array
     for (i = 0; i < neighborsListSize && counter < 10; i++) {
@@ -199,7 +199,7 @@ void sendLSP(uint8_t lostNeighbor) {
     }
 
     // Send the packet
-    if (call Sender.send(routePack, AM_BROADCAST_ADDR) != SUCCESS) {
+    if (call Sender.send(&routePack, AM_BROADCAST_ADDR) != SUCCESS) {
         dbg(GENERAL_CHANNEL, "Failed to send LSP packet.\n");
     }
 }
