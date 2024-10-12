@@ -159,7 +159,14 @@ implementation {
     call General.print("Dijkstra Timer fired for node %d. Running algorithm...\n", nodeID);
     runDijkstraAlgorithm();
   }
-
+//////////
+// Function to insert a value into the routing table
+  void insertRoutingTable(int destination, int nextHop) {
+    routingTableEntry entry;
+    entry.nextHop = nextHop;
+    call routingTable.insert(destination, entry);
+  }
+//////////
   // Dijkstra's algorithm implementation
   void runDijkstraAlgorithm() {
     int dist[MAXNODES];
@@ -201,16 +208,6 @@ implementation {
         }
       }
     }
-
-
-// Function to insert a value into the routing table
-  void insertRoutingTable(int destination, int nextHop) {
-    routingTableEntry entry;
-    entry.nextHop = nextHop;
-    call routingTable.insert(destination, entry);
-  }
-
-  
 
     // Update the routing table with next hops
     for (int i = 0; i < MAXNODES; i++) {
