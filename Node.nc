@@ -3,6 +3,8 @@
 // Sep/28/2024
 // Zaid Laffta
 
+/*
+
 #include <Timer.h>
 #include "includes/command.h"
 #include "includes/packet.h"
@@ -145,4 +147,77 @@ implementation {
       Package->protocol = protocol;
       memcpy(Package->payload, payload, length);
    }
+}
+*/
+#include <Timer.h>
+#include "includes/command.h"
+#include "includes/packet.h"
+#include "includes/CommandMsg.h"
+#include "includes/sendInfo.h"
+#include "includes/channels.h"
+#include <string.h>
+
+module Node {
+  provides interface Boot;
+  provides interface Receive;
+  provides interface AMSend as Sender;
+  provides interface AMSend as FloodSender;
+  provides interface AMSend as RouteSender;
+  provides interface AMControl;
+  uses interface NeighborDiscovery;
+  uses interface CommandHandler;
+  uses interface LinkState;
+  uses interface Debug as General;  // For General debug output
+}
+
+implementation {
+  // Boot Event: Start LinkState when the node boots
+  event void Boot.booted() {
+    call General.print("Node booted. Initializing...\n");
+    
+    // Start LinkState protocol
+    call LinkState.start();
+
+    // Initialize Neighbor Discovery
+    call NeighborDiscovery.start();
+  }
+
+  // Receive Event: Handles the receipt of a message
+  event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len) {
+    call General.print("Message received at Node.\n");
+
+    // Let LinkState handle received Link-State Packets (LSPs)
+    message_t* response = call LinkState.receive(msg, payload, len);
+    
+    return response;
+  }
+
+  // Send Event: Handles the completion of a message send operation
+  event void AMSend.sendDone(message_t* msg, error_t err) {
+    if (err == SUCCESS) {
+      call General.print("Message sent successfully.\n");
+    } else {
+      call General.print("Error sending message.\n");
+    }
+  }
+
+  // Neighbor Discovery Event: When a new neighbor is discovered
+  event void NeighborDiscovery.found() {
+    call General.print("Neighbor discovered.\n");
+
+    // Notify the LinkState module about the new neighbor
+    call LinkState.handleNeighborDiscovery();
+  }
+
+  // CommandHandler Event: Handles received commands
+  event void CommandHandler.commandReceived(uint8_t command) {
+    call General.print("Command received: %d\n", command);
+    
+    // For example, command '1' could trigger printing of the routing table
+    if (command == 1) {
+      call LinkState.printRoutingTable();
+    }
+  }
+
+  // Further implementation and event handling...
 }

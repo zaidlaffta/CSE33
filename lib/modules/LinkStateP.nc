@@ -4,291 +4,227 @@
 #include "../../includes/protocol.h"
 #include "../../includes/CommandMsg.h"
 #include "../../includes/command.h"
-// Module
 #include "../../includes/channels.h"
 #include "../../includes/packet.h"
+#include <stdio.h>
+
 #define INFINITY 9999
 #define MAXNODES 20
+#define LSP_INTERVAL 1000        // Interval for broadcasting LSPs (in milliseconds)
+#define DIJKSTRA_INTERVAL 5000   // Interval for running Dijkstra's algorithm
 
-module LinkStateP{
-
-  // provides intefaces
+module LinkStateP {
+  // Provides interfaces
   provides interface LinkState;
 
-  /// uses interface
+  // Uses interfaces
   uses interface Timer<TMilli> as lsrTimer;
   uses interface Timer<TMilli> as dijkstraTimer;
-  uses interface SimpleSend as LSPSender;
-  uses interface List<lspLink> as lspLinkList;
+  uses interface Debug as General;
+  uses interface Random;
+
   uses interface List<pack> as neighborList;
+  uses interface List<lspLink> as lspLinkList;
+  uses interface Hashmap<int, int> as routingTable;
 
-  uses interface Hashmap<int> as routingTable;
-  uses interface Random as Random;
+  // Interfaces for sending and receiving messages
+  uses interface Send as LSPSender;
+  uses interface Receive as LSPReceiver;
 
+  // Internal state variables
+  int routingTableData[MAXNODES][MAXNODES];
+  int nodeID;
+  uint16_t sequenceNumber; // Sequence number for LSPs
 }
 
-implementation{
-  pack sendPackage;
-  lspLink lspL;
-  uint16_t lspAge = 0;
-  bool isvalueinarray(uint8_t val, uint8_t *arr, uint8_t size);
-  int makeGraph();
-
-  void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
-
-  command void LinkState.start(){
-    // one shot timer and include random element to it.
-    //dbg(GENERAL_CHANNEL, "Booted\n");
-    call lsrTimer.startPeriodic(80000 + (uint16_t)((call Random.rand16())%10000));
-    call dijkstraTimer.startOneShot(90000 + (uint16_t)((call Random.rand16())%10000));
+implementation {
+  // Initialization and starting the protocol
+  event void Boot.booted() {
+    call LinkState.start();
   }
 
-  command void LinkState.printRoutingTable()
-  {
-    int i = 0;
-    for(i=1; i<=call routingTable.size();i++){
-      dbg(GENERAL_CHANNEL, "Dest: %d \t firstHop: %d\n", i, call routingTable.get(i));
+  command void LinkState.start() {
+    call General.print("Starting LinkState protocol...\n");
+    
+    // Initialize the routing table with INFINITY
+    for (int i = 0; i < MAXNODES; i++) {
+      for (int j = 0; j < MAXNODES; j++) {
+        routingTableData[i][j] = (i == j) ? 0 : INFINITY;
+      }
+    }
+
+    // Assign node ID (assuming TOS_NODE_ID is defined per node)
+    nodeID = TOS_NODE_ID;
+    call General.print("Node ID assigned: %d\n", nodeID);
+
+    // Initialize sequence number
+    sequenceNumber = 0;
+
+    // Start timers
+    call lsrTimer.startPeriodic(LSP_INTERVAL);
+    call dijkstraTimer.startPeriodic(DIJKSTRA_INTERVAL);
+  }
+
+  // Timer fired for broadcasting LSPs
+  event void lsrTimer.fired() {
+    call General.print("LSP Timer fired for node %d.\n", nodeID);
+    sendLSP();
+  }
+
+  // Function to send Link-State Packets to neighbors
+  void sendLSP() {
+    // Create an LSP message
+    static message_t lspMessage;
+    packet_t *pkt = (packet_t *) call Packet.getPayload(&lspMessage, sizeof(packet_t));
+
+    if (pkt == NULL) {
+      call General.print("Failed to get packet payload.\n");
+      return;
+    }
+
+    // Fill in packet fields
+    pkt->protocol = PROTOCOL_LINKSTATE; // Define in protocol.h
+    pkt->src = nodeID;
+    pkt->dest = AM_BROADCAST_ADDR;      // Broadcast address
+    pkt->ttl = MAX_TTL;                 // Define MAX_TTL
+    pkt->seq = sequenceNumber++;
+    
+    // Include neighbor information in the payload
+    uint8_t numNeighbors = call neighborList.size();
+    uint8_t payloadLength = numNeighbors * sizeof(uint16_t);
+    uint8_t *payload = pkt->payload;
+
+    for (uint8_t i = 0; i < numNeighbors; i++) {
+      pack neighbor;
+      call neighborList.get(i, &neighbor);
+      uint16_t neighborID = neighbor.src;
+      memcpy(payload + i * sizeof(uint16_t), &neighborID, sizeof(uint16_t));
+    }
+
+    // Send the packet
+    error_t err = call LSPSender.send(AM_BROADCAST_ADDR, &lspMessage, sizeof(packet_t) + payloadLength);
+    if (err != SUCCESS) {
+      call General.print("Failed to send LSP from node %d.\n", nodeID);
+    } else {
+      call General.print("LSP sent from node %d with sequence number %d.\n", nodeID, sequenceNumber - 1);
     }
   }
 
-  command void LinkState.print()
-  {
-
-    if(call lspLinkList.size() > 0)
-    {
-      uint16_t lspLinkListSize = call lspLinkList.size();
-      uint16_t i = 0;
-
-      //dbg(NEIGHBOR_CHANNEL, "***the NEIGHBOUR size of node %d is :%d\n",TOS_NODE_ID, neighborListSize);
-      for(i = 0; i < lspLinkListSize; i++)
-      {
-        lspLink lspackets =  call lspLinkList.get(i);
-        dbg(ROUTING_CHANNEL,"Source:%d\tNeighbor:%d\tcost:%d\n",lspackets.src,lspackets.neighbor,lspackets.cost);
-      }
-    }
-    else{
-      dbg(COMMAND_CHANNEL, "***0 LSP of node  %d!\n",TOS_NODE_ID);
-    }
-
-  }
-
-  event void lsrTimer.fired()
-  {
-    uint16_t neighborListSize = call neighborList.size();
-    uint16_t lspListSize = call lspLinkList.size();
-
-    uint8_t neighborArr[neighborListSize];
-    uint16_t i,j = 0;
-    bool enterdata = TRUE;
-    //dbg(ROUTING_CHANNEL,"**NEighbor size %d\n",neighborListSize);
-
-    if(lspAge==MAX_NEIGHBOR_AGE){
-      //dbg(NEIGHBOR_CHANNEL,"removing neighbor of %d with Age %d \n",TOS_NODE_ID,neighborAge);
-      lspAge = 0;
-      for(i = 0; i < lspListSize; i++) {
-        call lspLinkList.popfront();
-      }
-    }
-
-    //dbg(NEIGHBOR_CHANNEL, "***the NEIGHBOUR size of node %d is :%d\n",TOS_NODE_ID, neighborListSize);
-    for(i = 0; i < neighborListSize; i++)
-    {
-      pack neighborNode = call neighborList.get(i);
-      for(j = 0; j < lspListSize; j++)
-      {
-        lspLink lspackets = call lspLinkList.get(j);
-        if(lspackets.src == TOS_NODE_ID && lspackets.neighbor==neighborNode.src){
-          enterdata = FALSE;
-        }
-      }
-      if (enterdata){
-        lspL.neighbor = neighborNode.src;
-        lspL.cost = 1;
-        lspL.src = TOS_NODE_ID;
-        call lspLinkList.pushback(lspL);
-	       call dijkstraTimer.startOneShot(90000 + (uint16_t)((call Random.rand16())%10000));
-      }
-      if(!isvalueinarray(neighborNode.src,neighborArr,neighborListSize)){
-        neighborArr[i] = neighborNode.src;
-        //dbg(ROUTING_CHANNEL,"**NEighbor %d in node %d\n",neighborNode.src,TOS_NODE_ID);
-        }else{
-          //dbg(ROUTING_CHANNEL,"**ALREADY EXISTS %d in node %d\n",neighborNode.src,TOS_NODE_ID);
-        }
-      }
-      makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL, PROTOCOL_LINKSTATE, neighborListSize, (uint8_t *) neighborArr, neighborListSize);
-      call LSPSender.send(sendPackage, AM_BROADCAST_ADDR);
-      //  dbg(ROUTING_CHANNEL, "Sending LSPs\n");
-    }
-
-
-
-    /*
-    Command Receive(){
-    // If the destination is AM_BROADCAST, then respond directly
-    send(msg, msg.src);
-    // else
-    add neighborlist
-    //
-    }*/
-
-    // each neighbor time since last response. ( let’s set it to 5)
-
-    bool isvalueinarray(uint8_t val, uint8_t *arr, uint8_t size){
-      int i;
-      for (i=0; i < size; i++) {
-        if (arr[i] == val)
-        return TRUE;
-      }
-      return FALSE;
-    }
-
-    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
-      Package->src = src;
-      Package->dest = dest;
-      Package->TTL = TTL;
-      Package->seq = seq;
-      Package->protocol = protocol;
-      memcpy(Package->payload, payload, length);
-    }
-
-    /*void CalculateUniqueNodes(){
-      //get unique nodes for dijkstra
-      int size = call lspLinkList.size();
-      int nodesize[MAXNODES];
-      int i;
-      for (i=0;i<size;i++){
-        lspLink stuff = call lspLinkList.get(i);
-        if (!isvalueinarray(stuff.src, nodesize, MAXNODES)){
-          nodesize[i] = stuff.src;
-        }
-      }
-    }*/
-
-    //dijkstra
-
-    // Source Reference - https://www.thecrazyprogrammer.com/2014/03/dijkstra-algorithm-for-finding-shortest-path-of-a-graph.html
-    event void dijkstraTimer.fired()
-      {
-        int nodesize[MAXNODES];
-        int size = call lspLinkList.size();
-        int maxNode = MAXNODES;
-        int i,j,next_hop, cost[maxNode][maxNode], distance[maxNode], pred_list[maxNode];
-        int visited[maxNode], node_count, mindistance, nextnode;
-        //pred[] stores the predecessor of each node
-        //count gives the number of nodes seen so far
-        //create the cost matrix
-
-        int start_node = TOS_NODE_ID;
-        bool adjMatrix[maxNode][maxNode];
-        //dbg(ROUTING_CHANNEL,"\nSOURCE NODE %d\n",TOS_NODE_ID);
-
-
-
-
-        for(i=0;i<maxNode;i++)
-        {
-          for(j=0;j<maxNode;j++){
-            adjMatrix[i][j] = FALSE;
-          }
-        }
-
-        for(i=0; i<size;i++){
-          lspLink stuff = call lspLinkList.get(i);
-          adjMatrix[stuff.src][stuff.neighbor] = TRUE;
-        }
-
-        for(i=0;i<maxNode;i++)
-        {
-          for(j=0;j<maxNode;j++)
-          {
-            if (adjMatrix[i][j] == 0)
-            cost[i][j] = INFINITY;
-            else
-            cost[i][j] = adjMatrix[i][j];
-          }
-        }
-
-        //initialize pred[],distance[] and visited[]
-        for(i = 0; i < maxNode; i++)
-        {
-          distance[i] = cost[start_node][i];
-          pred_list[i] = start_node;
-          visited[i] = 0;
-        }
-
-
-        distance[start_node] = 0;
-        visited[start_node] = 1;
-        node_count = 1;
-
-        while (node_count < maxNode - 1)
-        {
-          mindistance = INFINITY;
-          //nextnode gives the node at minimum distance
-          for (i = 0; i < maxNode; i++){
-            if (distance[i] <= mindistance && !visited[i])
-            {
-              mindistance = distance[i];
-              nextnode = i;
-            }
-
-          }
-
-          visited[nextnode] = 1;
-          //check if a better path exists through nextnode
-          for (i = 0; i < maxNode; i++)
-          {
-
-            if (!visited[i]){
-              if (mindistance + cost[nextnode][i] < distance[i])
-              {
-                distance[i] = mindistance + cost[nextnode][i];
-                pred_list[i] = nextnode;
-              }
-            }
-          }
-          node_count++;
-        }
-
-
-        //print the path and distance of each node
-        /*
-        for(i=1;i<maxNode;i++)
-        if(i!=start_node)
-        {
-        printf("\nDistance of node %d=%d",i,distance[i]);
-        printf("\nPath=%d",i);
-
-        j=i;
-        do
-        {
-        j=pred_list[j];
-        printf("<-%d",j);
-        }while(j!=start_node);
-      }
-      */
-
-      for (i = 0; i < maxNode; i++){
-        next_hop = TOS_NODE_ID;
-        if (distance[i] != INFINITY){
-          if (i != start_node) {
-            j = i;
-            do {
-              if (j!=start_node){
-                next_hop = j;
-              }
-              j = pred_list[j];
-              } while (j != start_node);
-            }
-            else{
-              next_hop = start_node;
-            }
-            if (next_hop != 0 )
-            {
-              call routingTable.insert(i, next_hop);
-            }
-          }
-        }
-
+  // Handle sendDone event for LSPs
+  event void LSPSender.sendDone(message_t *msg, error_t error) {
+    if (error == SUCCESS) {
+      call General.print("LSP send completed successfully from node %d.\n", nodeID);
+    } else {
+      call General.print("Error in sending LSP from node %d.\n", nodeID);
     }
   }
+
+  // Receive and process incoming LSPs
+  event message_t* LSPReceiver.receive(message_t* msg, void* payload, uint8_t len) {
+    packet_t *pkt = (packet_t *) payload;
+
+    if (pkt->protocol != PROTOCOL_LINKSTATE) {
+      return msg; // Not an LSP
+    }
+
+    call General.print("LSP received at node %d from node %d.\n", nodeID, pkt->src);
+
+    // Process LSP and update routing table
+    processLSP(pkt, len);
+
+    return msg;
+  }
+
+  // Function to process received LSPs
+  void processLSP(packet_t *pkt, uint8_t len) {
+    uint8_t numNeighbors = (len - sizeof(packet_t)) / sizeof(uint16_t);
+    uint8_t *payloadPtr = pkt->payload;
+
+    // Update adjacency matrix
+    for (uint8_t i = 0; i < numNeighbors; i++) {
+      uint16_t neighborID;
+      memcpy(&neighborID, payloadPtr + i * sizeof(uint16_t), sizeof(uint16_t));
+
+      // Update routing table data with cost 1 (assuming symmetric links)
+      routingTableData[pkt->src][neighborID] = 1;
+      routingTableData[neighborID][pkt->src] = 1;
+    }
+
+    // Optionally, store sequence numbers to avoid processing old LSPs
+    // Further code for handling sequence numbers...
+  }
+
+  // Timer fired for running Dijkstra's algorithm
+  event void dijkstraTimer.fired() {
+    call General.print("Dijkstra Timer fired for node %d. Running algorithm...\n", nodeID);
+    runDijkstraAlgorithm();
+  }
+
+  // Dijkstra's algorithm implementation
+  void runDijkstraAlgorithm() {
+    int dist[MAXNODES];
+    bool visited[MAXNODES];
+    int prev[MAXNODES];
+
+    // Initialize distances and predecessors
+    for (int i = 0; i < MAXNODES; i++) {
+      dist[i] = INFINITY;
+      visited[i] = FALSE;
+      prev[i] = -1;
+    }
+
+    dist[nodeID] = 0;
+
+    for (int i = 0; i < MAXNODES; i++) {
+      // Find the unvisited node with the smallest distance
+      int u = -1;
+      int minDist = INFINITY;
+      for (int j = 0; j < MAXNODES; j++) {
+        if (!visited[j] && dist[j] < minDist) {
+          minDist = dist[j];
+          u = j;
+        }
+      }
+
+      if (u == -1) break; // No more reachable nodes
+
+      visited[u] = TRUE;
+
+      // Update distances to neighbors
+      for (int v = 0; v < MAXNODES; v++) {
+        if (routingTableData[u][v] < INFINITY && !visited[v]) {
+          int alt = dist[u] + routingTableData[u][v];
+          if (alt < dist[v]) {
+            dist[v] = alt;
+            prev[v] = u;
+          }
+        }
+      }
+    }
+
+    // Update the routing table with next hops
+    for (int i = 0; i < MAXNODES; i++) {
+      if (i != nodeID && dist[i] < INFINITY) {
+        // Determine next hop
+        int nextHop = i;
+        while (prev[nextHop] != nodeID && prev[nextHop] != -1) {
+          nextHop = prev[nextHop];
+        }
+        call routingTable.insert(i, nextHop);
+      }
+    }
+
+    call General.print("Dijkstra's algorithm completed for node %d.\n", nodeID);
+  }
+
+  // Command to print the routing table
+  command void LinkState.printRoutingTable() {
+    call General.print("Routing table for node %d:\n", nodeID);
+    for (int i = 0; i < MAXNODES; i++) {
+      int nextHop;
+      if (call routingTable.contains(i, &nextHop)) {
+        call General.print("Destination: %d, Next Hop: %d\n", i, nextHop);
+      }
+    }
+  }
+}

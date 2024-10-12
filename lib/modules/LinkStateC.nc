@@ -16,33 +16,29 @@ configuration LinkStateC{
   uses interface List<pack> as neighborListC;
   uses interface List<lspLink> as lspLinkC;
   uses interface Hashmap<int> as HashmapC;
+  uses interface Debug as General; // Added Debug interface
 }
 
-implementation{
+implementation {
   components LinkStateP;
-  //components new TimerMilliC() as neigbordiscoveryTimer;
+  components new TimerMilliC() as lsrTimer;
+  components new TimerMilliC() as dijkstra;
   components new SimpleSendC(AM_NEIGHBOR);
   components new AMReceiverC(AM_NEIGHBOR);
 
-  components new TimerMilliC() as lsrTimer;
   LinkStateP.lsrTimer -> lsrTimer;
-
-  components new TimerMilliC() as dijkstra;
   LinkStateP.dijkstraTimer -> dijkstra;
-
   LinkStateP.neighborList = neighborListC;
-
+  LinkStateP.lspLinkList = lspLinkC;
+  LinkStateP.routingTable = HashmapC;
+  
   components RandomC as Random;
   LinkStateP.Random -> Random;
 
   // External Wiring
   LinkState = LinkStateP.LinkState;
-
-  /*components new HashmapC(int, 300) as HashmapC;
-  LinkStateP.routingTable -> HashmapC;*/
-
-  LinkStateP.lspLinkList = lspLinkC;
-  LinkStateP.routingTable = HashmapC;
+  
+  LinkStateP.General -> General;  // Wire Debug interface for printing
 
   components FloodingC;
   LinkStateP.LSPSender -> FloodingC.LSPSender;
