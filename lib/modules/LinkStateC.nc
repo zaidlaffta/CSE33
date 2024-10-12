@@ -10,12 +10,12 @@
 #define LS_TTL 17
 // Configuration
 #define AM_LinkState 62
-
+#define AM_NEIGHBOR 0x93  
 configuration LinkStateC{
   provides interface LinkState;
   uses interface List<pack> as neighborListC;
   uses interface List<lspLink> as lspLinkC;
-  uses interface Hashmap<int> as routingTable;
+  //uses interface Hashmap<int> as routingTable;
   uses interface Debug as General; // Added Debug interface
 }
 

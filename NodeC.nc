@@ -30,7 +30,8 @@ implementation {
   Node.NeighborDiscovery -> NeighborDiscoveryC;
   NeighborDiscoveryC.neighborListC -> neighborListC;
   LinkStateC.lspLinkC -> lspLinkC;
-
+  components ActiveMessageC;  // Component for AMControl
+  Node.AMControl -> ActiveMessageC;
   components CommandHandlerC;
   Node.CommandHandler -> CommandHandlerC;
 

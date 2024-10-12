@@ -24,5 +24,7 @@ typedef struct {
 typedef struct {
     int nextHop; // Stores the next hop for the routing table
 } routingTableEntry;
+// In protocol.h
+
 
 #endif /* PACK_BUFFER_H */

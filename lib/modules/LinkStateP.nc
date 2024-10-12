@@ -33,7 +33,7 @@ module LinkStateP {
 
   // Internal state variables
   int routingTableData[MAXNODES][MAXNODES];
-  int nodeID;
+  
   uint16_t sequenceNumber; // Sequence number for LSPs
 }
 
@@ -44,7 +44,7 @@ implementation {
   }
 
   command void LinkState.start() {
-    call General.print("Starting LinkState protocol...\n");
+    dbg(GENERAL_CHANNEL, "Starting LinkState protocol...\n");
     
     // Initialize the routing table with INFINITY
     for (int i = 0; i < MAXNODES; i++) {
@@ -54,8 +54,8 @@ implementation {
     }
 
     // Assign node ID (assuming TOS_NODE_ID is defined per node)
-    nodeID = TOS_NODE_ID;
-    call General.print("Node ID assigned: %d\n", nodeID);
+    
+    dbg(GENERAL_CHANNEL, "Node ID assigned: %d\n", TOS_NODE_ID);
 
     // Initialize sequence number
     sequenceNumber = 0;
@@ -67,7 +67,7 @@ implementation {
 
   // Timer fired for broadcasting LSPs
   event void lsrTimer.fired() {
-    call General.print("LSP Timer fired for node %d.\n", nodeID);
+    dbg(GENERAL_CHANNEL, "LSP Timer fired for node %d.\n", TOS_NODE_ID);
     sendLSP();
   }
 
@@ -78,13 +78,13 @@ implementation {
     packet_t *pkt = (packet_t *) call Packet.getPayload(&lspMessage, sizeof(packet_t));
 
     if (pkt == NULL) {
-      call General.print("Failed to get packet payload.\n");
+      dbg(GENERAL_CHANNEL, "Failed to get packet payload.\n");
       return;
     }
 
     // Fill in packet fields
     pkt->protocol = PROTOCOL_LINKSTATE; // Define in protocol.h
-    pkt->src = nodeID;
+    pkt->src = TOS_NODE_ID;
     pkt->dest = AM_BROADCAST_ADDR;      // Broadcast address
     pkt->ttl = MAX_TTL;                 // Define MAX_TTL
     pkt->seq = sequenceNumber++;
@@ -104,18 +104,18 @@ implementation {
     // Send the packet
     error_t err = call LSPSender.send(AM_BROADCAST_ADDR, &lspMessage, sizeof(packet_t) + payloadLength);
     if (err != SUCCESS) {
-      call General.print("Failed to send LSP from node %d.\n", nodeID);
+      dbg(GENERAL_CHANNEL, "Failed to send LSP from node %d.\n", TOS_NODE_ID);
     } else {
-      call General.print("LSP sent from node %d with sequence number %d.\n", nodeID, sequenceNumber - 1);
+      dbg(GENERAL_CHANNEL, "LSP sent from node %d with sequence number %d.\n", TOS_NODE_ID, sequenceNumber - 1);
     }
   }
 
   // Handle sendDone event for LSPs
   event void LSPSender.sendDone(message_t *msg, error_t error) {
     if (error == SUCCESS) {
-      call General.print("LSP send completed successfully from node %d.\n", nodeID);
+      dbg(GENERAL_CHANNEL, "LSP send completed successfully from node %d.\n", TOS_NODE_ID);
     } else {
-      call General.print("Error in sending LSP from node %d.\n", nodeID);
+      dbg(GENERAL_CHANNEL, "Error in sending LSP from node %d.\n", TOS_NODE_ID);
     }
   }
 
@@ -127,7 +127,7 @@ implementation {
       return msg; // Not an LSP
     }
 
-    call General.print("LSP received at node %d from node %d.\n", nodeID, pkt->src);
+    dbg(GENERAL_CHANNEL, "LSP received at node %d from node %d.\n", TOS_NODE_ID, pkt->src);
 
     // Process LSP and update routing table
     processLSP(pkt, len);
@@ -156,7 +156,7 @@ implementation {
 
   // Timer fired for running Dijkstra's algorithm
   event void dijkstraTimer.fired() {
-    call General.print("Dijkstra Timer fired for node %d. Running algorithm...\n", nodeID);
+    dbg(GENERAL_CHANNEL, "Dijkstra Timer fired for node %d. Running algorithm...\n", TOS_NODE_ID);
     runDijkstraAlgorithm();
   }
 //////////
@@ -180,7 +180,7 @@ implementation {
       prev[i] = -1;
     }
 
-    dist[nodeID] = 0;
+    dist[TOS_NODE_ID] = 0;
 
     for (int i = 0; i < MAXNODES; i++) {
       // Find the unvisited node with the smallest distance
@@ -211,25 +211,36 @@ implementation {
 
     // Update the routing table with next hops
     for (int i = 0; i < MAXNODES; i++) {
-      if (i != nodeID && dist[i] < INFINITY) {
+      if (i != TOS_NODE_ID && dist[i] < INFINITY) {
         // Determine next hop
         int nextHop = i;
-        while (prev[nextHop] != nodeID && prev[nextHop] != -1) {
+        while (prev[nextHop] != TOS_NODE_ID && prev[nextHop] != -1) {
           nextHop = prev[nextHop];
         }
         call routingTable.insert(i, nextHop);
       }
     }
 
-    call General.print("Dijkstra's algorithm completed for node %d.\n", nodeID);
+    dbg(GENERAL_CHANNEL, "Dijkstra's algorithm completed for node %d.\n", TOS_NODE_ID);
   }
 
+  event void AMSend.sendDone(message_t *msg, error_t err) {
+    if (err == SUCCESS) {
+        dbg(GENERAL_CHANNEL, "Message sent successfully.\n");
+    } else {
+         dbg(GENERAL_CHANNEL, "Error sending message.\n");
+    }
+}
+
+command void LinkState.print() {
+    dbg(GENERAL_CHANNEL, "This is printing LinkState \n");
+}
   command void LinkState.printRoutingTable() {
-    call General.print("Routing table for node %d:\n", nodeID);
+    dbg(GENERAL_CHANNEL, "Routing table for node %d:\n", TOS_NODE_ID);
     for (int i = 0; i < 64; i++) {
       routingTableEntry entry;
       if (call routingTable.get(i, &entry) == SUCCESS) {
-        call General.print("Destination: %d, Next Hop: %d\n", i, entry.nextHop);
+        dbg(GENERAL_CHANNEL, "Destination: %d, Next Hop: %d\n", i, entry.nextHop);
       }
     }
   }
