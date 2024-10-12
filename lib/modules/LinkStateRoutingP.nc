@@ -178,17 +178,29 @@ implementation {
     }
 
     void sendLSP(uint8_t lostNeighbor) {
-        uint32_t* neighbors = call NeighborDiscovery.fetchNeighbors();
-        uint16_t neighborsListSize = call NeighborDiscovery.fetchNeighborCount();
-        uint16_t i = 0, counter = 0;
+    uint32_t* neighbors = call NeighborDiscovery.fetchNeighbors();
+    uint16_t neighborsListSize = call NeighborDiscovery.fetchNeighborCount();
+    uint16_t i = 0, counter = 0;
 
-        // Prepare the packet structure and ensure payload allocation
-        makePack(&routePack, TOS_NODE_ID, AM_BROADCAST_ADDR, LS_TTL, PROTOCOL_LS, sequenceNum++, NULL, sizeof(LSP) * 10);
+    // Prepare the packet structure and ensure payload allocation
+    makePack(&routePack, TOS_NODE_ID, AM_BROADCAST_ADDR, LS_TTL, PROTOCOL_LS, sequenceNum++, NULL, sizeof(LSP) * 10);
 
-        // Ensure the payload pointer is valid
-        LSP* lsp = (LSP*)call Packet.getPayload(&routePack, sizeof(LSP) * 10);
+    // Ensure the payload pointer is valid
+    LSP* lsp = (LSP*) call Packet.getPayload(&routePack, sizeof(LSP) * 10);
+    if (lsp == NULL) {
+        dbg(GENERAL_CHANNEL, "Failed to allocate payload for LSP.\n");
+        return;
+    }
 
-        // Iterate through neighbors and fill the LSP array
-        for (i = 0; i < neighborsListSize && counter < 10; i++) {
-            lsp[counter].neighbor = neighbors[i];
-            lsp[counter].cost = (neighbors[i] == lost
+    // Iterate through neighbors and fill the LSP array
+    for (i = 0; i < neighborsListSize && counter < 10; i++) {
+        lsp[counter].neighbor = neighbors[i];
+        lsp[counter].cost = (neighbors[i] == lostNeighbor) ? LS_MAX_COST : 1;
+        counter++;
+    }
+
+    // Send the packet
+    if (call Sender.send(&routePack, AM_BROADCAST_ADDR) != SUCCESS) {
+        dbg(GENERAL_CHANNEL, "Failed to send LSP packet.\n");
+    }
+}
