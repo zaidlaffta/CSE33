@@ -20,6 +20,9 @@ typedef struct {
   uint16_t dest; // Destination node
   uint16_t cost; // Cost of the link
 } lspLink;
-
+//Strc for routing table
+typedef struct {
+    int nextHop; // Stores the next hop for the routing table
+} routingTableEntry;
 
 #endif /* PACK_BUFFER_H */

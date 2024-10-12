@@ -25,7 +25,7 @@ module LinkStateP {
 
   uses interface List<pack> as neighborList;
   uses interface List<lspLink> as lspLinkList;
-  uses interface Hashmap<int, int> as routingTable;
+  uses interface Hashmap<int> as routingTable;
 
   // Interfaces for sending and receiving messages
   uses interface Send as LSPSender;
@@ -202,6 +202,16 @@ implementation {
       }
     }
 
+
+// Function to insert a value into the routing table
+  void insertRoutingTable(int destination, int nextHop) {
+    routingTableEntry entry;
+    entry.nextHop = nextHop;
+    call routingTable.insert(destination, entry);
+  }
+
+  
+
     // Update the routing table with next hops
     for (int i = 0; i < MAXNODES; i++) {
       if (i != nodeID && dist[i] < INFINITY) {
@@ -217,13 +227,12 @@ implementation {
     call General.print("Dijkstra's algorithm completed for node %d.\n", nodeID);
   }
 
-  // Command to print the routing table
   command void LinkState.printRoutingTable() {
     call General.print("Routing table for node %d:\n", nodeID);
-    for (int i = 0; i < MAXNODES; i++) {
-      int nextHop;
-      if (call routingTable.contains(i, &nextHop)) {
-        call General.print("Destination: %d, Next Hop: %d\n", i, nextHop);
+    for (int i = 0; i < 64; i++) {
+      routingTableEntry entry;
+      if (call routingTable.get(i, &entry) == SUCCESS) {
+        call General.print("Destination: %d, Next Hop: %d\n", i, entry.nextHop);
       }
     }
   }

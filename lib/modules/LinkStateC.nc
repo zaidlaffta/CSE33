@@ -15,7 +15,7 @@ configuration LinkStateC{
   provides interface LinkState;
   uses interface List<pack> as neighborListC;
   uses interface List<lspLink> as lspLinkC;
-  uses interface Hashmap<int> as HashmapC;
+  uses interface Hashmap<int> as routingTable;
   uses interface Debug as General; // Added Debug interface
 }
 
@@ -25,6 +25,7 @@ implementation {
   components new TimerMilliC() as dijkstra;
   components new SimpleSendC(AM_NEIGHBOR);
   components new AMReceiverC(AM_NEIGHBOR);
+  components new HashmapC(int, 64) as routingTable; // Key is 'int', 64 entries max
 
   LinkStateP.lsrTimer -> lsrTimer;
   LinkStateP.dijkstraTimer -> dijkstra;
@@ -40,9 +41,12 @@ implementation {
 
   // External Wiring
   LinkState = LinkStateP.LinkState;
-  
+  ///////
+  LinkStateP.routingTable -> routingTable;
+  LinkState = LinkStateP.LinkState;
+  LinkStateP.General -> General;
   LinkStateP.General -> General;  // Wire Debug interface for printing
-
+/////////
   components FloodingC;
   LinkStateP.LSPSender -> FloodingC.LSPSender;
 }
