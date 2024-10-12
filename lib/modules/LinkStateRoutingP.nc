@@ -178,7 +178,7 @@ implementation {
         return isStateUpdated;
     }
 
-/*
+
 
 void sendLSP(uint8_t lostNeighbor) {
     uint32_t* neighbors = call NeighborDiscovery.fetchNeighbors();
@@ -204,7 +204,7 @@ void sendLSP(uint8_t lostNeighbor) {
 }
 
 
-   */
+   
 
 
     // Djikstra's algorithm for computing shortest paths
