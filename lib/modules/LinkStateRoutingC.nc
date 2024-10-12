@@ -18,9 +18,8 @@ implementation {
 
     components new SimpleSendC(AM_PACK);
     LinkStateRoutingP.Sender -> SimpleSendC;
-
-    // HashmapC requires two parameters: the key type and value type.
-    components new HashmapC(uint16_t, bool) as PacketsReceivedMap;  // Adjust key and value types as needed
+// Corrected HashmapC instantiation. The second parameter should be a constant (LS_MAX_ROUTES) not a type.
+    components new HashmapC(uint16_t, LS_MAX_ROUTES) as PacketsReceivedMap;
     LinkStateRoutingP.PacketsReceived -> PacketsReceivedMap;
 
     components NeighborDiscoveryC;
