@@ -23,7 +23,7 @@ module Node {
    uses interface Receive;
    uses interface SimpleSend as Sender;
    uses interface CommandHandler;
-   uses interface LinkStateRouting as LinkStateRouting;
+   uses interface LinkState as LinkState;
 }
 
 implementation {
@@ -36,7 +36,7 @@ implementation {
       dbg(GENERAL_CHANNEL, "Booted\n");
 
       //debug the linkstate routing protocol
-      call LinkStateRouting.start(); 
+      call LinkState.start(); 
 
 
    }
@@ -87,7 +87,7 @@ implementation {
             dbg(GENERAL_CHANNEL, "******************************************\n");
          }
          else if(myMsg -> protocol == PROTOCOL_LS){
-            call LinkStateRouting.handleLS(myMsg); 
+            call LinkState.handleLS(myMsg); 
          }
          else {
             //dbg(GENERAL_CHANNEL, "Flooding function called here\n");
@@ -124,7 +124,7 @@ implementation {
    event void CommandHandler.printRouteTable() {}
 
    event void CommandHandler.printLinkState() {
-      call LinkStateRouting.printRouteTable();
+      call LinkState.printRouteTable();
    }
 
    event void CommandHandler.printDistanceVector() {}
