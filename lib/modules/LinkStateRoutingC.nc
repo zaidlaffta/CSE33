@@ -22,6 +22,9 @@ implementation {
     components new HashmapC(uint16_t, LS_MAX_ROUTES) as PacketsReceivedMap;
     LinkStateRoutingP.PacketsReceived -> PacketsReceivedMap;
 
+    components new PacketC();
+    LinkStateRoutingP.PacketInterface -> PacketC;
+
     components NeighborDiscoveryC;
     LinkStateRoutingP.NeighborDiscovery -> NeighborDiscoveryC;    
 

@@ -17,7 +17,9 @@ module LinkStateRoutingP {
     uses interface NeighborDiscovery as NeighborDiscovery;
     uses interface Flooding as Flooding;
     uses interface Timer<TMilli> as LSRTimer;                       
-    uses interface Random as Random;                                
+    uses interface Random as Random;        
+    uses interface Packet as PacketInterface;
+                        
 }
 
 implementation {
@@ -186,7 +188,7 @@ implementation {
     makePack(&routePack, TOS_NODE_ID, AM_BROADCAST_ADDR, LS_TTL, PROTOCOL_LS, sequenceNum++, NULL, sizeof(LSP) * 10);
 
     // Ensure the payload pointer is valid
-    LSP* lsp = (LSP*) call Packet.getPayload(&routePack, sizeof(LSP) * 10);
+    LSP* lsp = (LSP*) call PacketInterface.getPayload(&routePack, sizeof(LSP) * 10);
     if (lsp == NULL) {
         dbg(GENERAL_CHANNEL, "Failed to allocate payload for LSP.\n");
         return;
