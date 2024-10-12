@@ -34,6 +34,9 @@ implementation {
   
   components RandomC as Random;
   LinkStateP.Random -> Random;
+    // Wiring lspLink in LinkStateP
+  LinkStateP.lspLinkList -> lspLinkC;
+  LinkStateP.routingTable -> HashmapC;
 
   // External Wiring
   LinkState = LinkStateP.LinkState;

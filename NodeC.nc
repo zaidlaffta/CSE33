@@ -37,7 +37,7 @@ implementation {
   components FloodingC;
   Node.FloodSender -> FloodingC.FloodSender;
   Node.RouteSender -> FloodingC.RouteSender;
-  FloodingC.lspLinkC -> lspLinkC;
+  //FloodingC.lspLinkC -> lspLinkC;
   FloodingC.HashmapC -> HashmapC;
 
   components LinkStateC;
@@ -45,6 +45,7 @@ implementation {
   Node.routingTable -> HashmapC;
   LinkStateC.neighborListC -> neighborListC;
   LinkStateC.HashmapC -> HashmapC;
+  FloodingC.lspLinkC -> lspLinkC;
 
   // Invoke the routing table print method
   LinkStateC.LinkState.printRoutingTable();
