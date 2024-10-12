@@ -14,5 +14,12 @@ typedef struct sendInfo{
 	uint16_t src;
 	uint16_t dest;
 }sendInfo;
+// In a header file, 
+typedef struct {
+  uint16_t src;  // Source node
+  uint16_t dest; // Destination node
+  uint16_t cost; // Cost of the link
+} lspLink;
+
 
 #endif /* PACK_BUFFER_H */
