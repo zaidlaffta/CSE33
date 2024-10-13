@@ -6,7 +6,7 @@
 #include "includes/channels.h"
 #include <string.h>
 
-configuration NodeC{
+configuration NodeC {
 }
 
 implementation {
@@ -30,15 +30,13 @@ implementation {
   Node.NeighborDiscovery -> NeighborDiscoveryC;
   NeighborDiscoveryC.neighborListC -> neighborListC;
   LinkStateC.lspLinkC -> lspLinkC;
-  components ActiveMessageC;  // Component for AMControl
-  Node.AMControl -> ActiveMessageC;
+
   components CommandHandlerC;
   Node.CommandHandler -> CommandHandlerC;
 
   components FloodingC;
   Node.FloodSender -> FloodingC.FloodSender;
   Node.RouteSender -> FloodingC.RouteSender;
-  //FloodingC.lspLinkC -> lspLinkC;
   FloodingC.HashmapC -> HashmapC;
 
   components LinkStateC;
@@ -46,8 +44,6 @@ implementation {
   Node.routingTable -> HashmapC;
   LinkStateC.neighborListC -> neighborListC;
   LinkStateC.HashmapC -> HashmapC;
-  FloodingC.lspLinkC -> lspLinkC;
 
-  // Invoke the routing table print method
   LinkStateC.LinkState.printRoutingTable();
 }

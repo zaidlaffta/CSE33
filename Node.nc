@@ -167,31 +167,28 @@ module Node {
   uses interface NeighborDiscovery;
   uses interface CommandHandler;
   uses interface LinkState;
- // uses interface Debug as General;  
+  uses interface Debug as General;
 }
 
 implementation {
   // Boot Event: Start LinkState when the node boots
   event void Boot.booted() {
     dbg(GENERAL_CHANNEL, "Node booted. Initializing...\n");
-      // Initialize Neighbor Discovery
-    call NeighborDiscovery.start();
-    
+
     // Start LinkState protocol
     call LinkState.start();
-    
 
-  
+    // Initialize Neighbor Discovery
+    call NeighborDiscovery.start();
   }
-  message_t* response;
 
   // Receive Event: Handles the receipt of a message
   event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len) {
     dbg(GENERAL_CHANNEL, "Message received at Node.\n");
 
-    // Let LinkState handle received Link-State Packets (LSPs)
+    // Pass the received message to LinkState to handle Link-State Packets (LSPs)
     message_t* response = call LinkState.receive(msg, payload, len);
-    
+
     return response;
   }
 
@@ -215,12 +212,28 @@ implementation {
   // CommandHandler Event: Handles received commands
   event void CommandHandler.commandReceived(uint8_t command) {
     dbg(GENERAL_CHANNEL, "Command received: %d\n", command);
-    
+
     // For example, command '1' could trigger printing of the routing table
     if (command == 1) {
       call LinkState.printRoutingTable();
     }
   }
+  event void CommandHandler.printDistanceVector() {}
 
-  // Further implementation and event handling...
+   event void CommandHandler.setTestServer() {}
+
+   event void CommandHandler.setTestClient() {}
+
+   event void CommandHandler.setAppServer() {}
+
+   event void CommandHandler.setAppClient() {}
+
+   void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length) {
+      Package->src = src;
+      Package->dest = dest;
+      Package->TTL = TTL;
+      Package->seq = seq;
+      Package->protocol = protocol;
+      memcpy(Package->payload, payload, length);
+   }
 }
